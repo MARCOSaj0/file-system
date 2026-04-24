@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import { Files } from '../model/files.js';
+import { Logs } from '../model/logs.js';
 import { s3UploadFile, s3DeleteFile } from '../service/awsSdk.js';
 import { httpConst } from '../config/httpConst.js';
 import { ReS } from '../service/util.js';
@@ -34,10 +35,44 @@ const mapCloudError = (err: any): { status: number; message: string } | null => 
     return { status: httpConst.BadGateway, message: 'Cloud storage service error. Please try again later.' };
 };
 
+const safeCreateLog = async (payload: Partial<{ trace_id: string; action: string; status: string; error_message?: string; response_time_ms?: number; timestamp: Date; }>) => {
+    try {
+        return await Logs.create(payload);
+    } catch (err: any) {
+        console.error('Upload log creation failed', err);
+        return null;
+    }
+};
+
+const safeUpdateLog = async (id: string | object | undefined, payload: Partial<{ status: string; error_message?: string; response_time_ms?: number; timestamp: Date; }>) => {
+    if (!id) {
+        return null;
+    }
+    try {
+        return await Logs.findByIdAndUpdate(id, payload);
+    } catch (err: any) {
+        console.error('Upload log update failed', err);
+        return null;
+    }
+};
+
 const uploadFile = async (req: Request & { file?: any }, res: Response): Promise<Response> => {
+    const trace_id = randomUUID();
+    const logEntry = await safeCreateLog({
+        trace_id,
+        action: 'upload',
+        status: 'initialized',
+        timestamp: new Date()
+    });
+
     try {
         const file = req.file;
         if (!file) {
+            await safeUpdateLog(logEntry?._id, {
+                status: 'failed',
+                error_message: 'File is required',
+                timestamp: new Date()
+            });
             return ReS(res, httpConst.BadRequest, 'File is required');
         }
 
@@ -45,11 +80,19 @@ const uploadFile = async (req: Request & { file?: any }, res: Response): Promise
         const randomId = randomUUID();
         const key = `${prefix}${randomId}`;
 
+        const cloudStart = Date.now();
         await s3UploadFile({
             buffer: file.buffer,
             mimetype: file.mimetype,
             contentType: file.mimetype
         }, key);
+        const responseTimeMs = Date.now() - cloudStart;
+
+        await safeUpdateLog(logEntry?._id, {
+            status: 'cloud-uploaded',
+            response_time_ms: responseTimeMs,
+            timestamp: new Date()
+        });
 
         const url = AWS_STATIC_ASSET_BUCKET && AWS_REGION
             ? `https://${AWS_STATIC_ASSET_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${key}`
@@ -65,6 +108,11 @@ const uploadFile = async (req: Request & { file?: any }, res: Response): Promise
             url
         });
 
+        await safeUpdateLog(logEntry?._id, {
+            status: 'completed',
+            timestamp: new Date()
+        });
+
         return ReS(res, httpConst.Cretaed, 'File uploaded successfully', {
             id: createdFile._id,
             url
@@ -72,6 +120,17 @@ const uploadFile = async (req: Request & { file?: any }, res: Response): Promise
     } catch (err: any) {
         console.error('Error uploading file', err);
         const cloudError = mapCloudError(err);
+        const updatePayload: any = {
+            status: 'failed',
+            timestamp: new Date()
+        };
+
+        if (err?.message) {
+            updatePayload.error_message = err.message;
+        }
+
+        await safeUpdateLog(logEntry?._id, updatePayload);
+
         if (cloudError) {
             return ReS(res, cloudError.status, cloudError.message);
         }
