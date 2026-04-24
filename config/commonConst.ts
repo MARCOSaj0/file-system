@@ -1,0 +1,1 @@
+export const commonErrMsg: string = "Something went wrong. Please try again later.";

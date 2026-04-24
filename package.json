@@ -1,0 +1,41 @@
+{
+  "type": "module",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/app.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/app.js",
+    "dev": "nodemon --exec tsx app.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MARCOSaj0/news-data-retrieval-system.git"
+  },
+  "author": "Ayush",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/MARCOSaj0/news-data-retrieval-system/issues"
+  },
+  "homepage": "https://github.com/MARCOSaj0/news-data-retrieval-system#readme",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1036.0",
+    "@types/multer": "^2.1.0",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^5.2.1",
+    "mongoose": "^8.23.1",
+    "multer": "^2.1.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/mongoose": "^5.11.96",
+    "@types/node": "^25.6.0",
+    "nodemon": "^3.1.14",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
+  }
+}
