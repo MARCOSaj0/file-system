@@ -1,11 +1,10 @@
-import { Router, Request, Response } from 'express';
-import multer from 'multer';
-import { uploadFile, listFiles, getFileById, deleteFile } from '../controller/fileController.js';
+import { Router } from 'express';
+import { uploadFile, listFiles, getFileById, deleteFile } from '../controller/fileController';
+import { uploadMiddleware } from '../middleware/multer';
 
 const router: Router = Router();
-const upload = multer({ storage: multer.memoryStorage() });
 
-router.post('/upload', upload.single('file'), uploadFile);
+router.post('/upload', uploadMiddleware, uploadFile);
 router.get('/list', listFiles);
 router.get('/:id', getFileById);
 router.delete('/:id', deleteFile);

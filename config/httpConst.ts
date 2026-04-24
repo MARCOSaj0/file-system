@@ -5,6 +5,10 @@ export interface HttpConstants {
     BadRequest: number;
     Forbidden: number;
     NotFound: number;
+    PayloadTooLarge: number;
+    UnsupportedMediaType: number;
+    BadGateway: number;
+    ServiceUnavailable: number;
     InternalServerError: number;
     perPageLimit: number;
 }
@@ -16,6 +20,10 @@ export const httpConst: HttpConstants = {
     BadRequest: 400,
     Forbidden: 403,
     NotFound: 404,
+    PayloadTooLarge: 413,
+    UnsupportedMediaType: 415,
+    BadGateway: 502,
+    ServiceUnavailable: 503,
     InternalServerError: 500,
     perPageLimit: 10
 };

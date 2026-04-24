@@ -1,4 +1,4 @@
-import express, { Response } from 'express';
+import { Response } from 'express';
 
 export const ReS = (res: Response, status: number, message?: string, data?: object): Response => {
     const resData: any = {

@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { httpConst } from '../config/httpConst.js';
 import { commonErrMsg } from '../config/commonConst.js';
 import { ReS } from '../service/util.js';

@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import { Files } from '../model/files.js';
 import { s3UploadFile, s3DeleteFile } from '../service/awsSdk.js';
@@ -7,6 +7,32 @@ import { ReS } from '../service/util.js';
 import appConfig from '../config/index.js';
 
 const { AWS_FOLDER, AWS_STATIC_ASSET_BUCKET, AWS_REGION } = appConfig;
+
+const mapCloudError = (err: any): { status: number; message: string } | null => {
+    const errorName = err?.name ?? err?.Code;
+
+    if (!errorName) {
+        return null;
+    }
+
+    const timeoutErrors = new Set(['TimeoutError', 'RequestTimeout', 'NetworkingError', 'ECONNRESET']);
+    const quotaErrors = new Set(['ServiceQuotaExceededException', 'QuotaExceededError']);
+    const throttlingErrors = new Set(['Throttling', 'TooManyRequestsException', 'SlowDown']);
+
+    if (timeoutErrors.has(errorName)) {
+        return { status: httpConst.ServiceUnavailable, message: 'Cloud storage request timed out. Please try again later.' };
+    }
+
+    if (quotaErrors.has(errorName)) {
+        return { status: httpConst.ServiceUnavailable, message: 'Cloud storage quota exceeded. Please free up space or try again later.' };
+    }
+
+    if (throttlingErrors.has(errorName)) {
+        return { status: httpConst.ServiceUnavailable, message: 'Cloud storage rate limit exceeded. Please retry after a short delay.' };
+    }
+
+    return { status: httpConst.BadGateway, message: 'Cloud storage service error. Please try again later.' };
+};
 
 const uploadFile = async (req: Request & { file?: any }, res: Response): Promise<Response> => {
     try {
@@ -18,7 +44,8 @@ const uploadFile = async (req: Request & { file?: any }, res: Response): Promise
         const prefix = AWS_FOLDER ? AWS_FOLDER.replace(/\/+$/, '') + '/' : '';
         const randomId = randomUUID();
         const key = `${prefix}${randomId}`;
-        const awsResponse = await s3UploadFile({
+
+        await s3UploadFile({
             buffer: file.buffer,
             mimetype: file.mimetype,
             contentType: file.mimetype
@@ -44,6 +71,10 @@ const uploadFile = async (req: Request & { file?: any }, res: Response): Promise
         });
     } catch (err: any) {
         console.error('Error uploading file', err);
+        const cloudError = mapCloudError(err);
+        if (cloudError) {
+            return ReS(res, cloudError.status, cloudError.message);
+        }
         return ReS(res, httpConst.InternalServerError, 'Unable to upload file');
     }
 };
